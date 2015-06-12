@@ -1,0 +1,14 @@
+{
+  "name": "vgr-server",
+  "version": "0.0.1",
+  "description": "Very Good: Risky Prototype Server",
+  "author": "Pyry Matikainen (PyryM)",
+  "scripts": {
+    "start": "node server.js",
+  },
+  "dependencies": {
+    "ws": "*",
+    "cannon": "*"
+  },
+  "license": "MIT"
+}
