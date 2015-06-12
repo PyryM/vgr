@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>mesh test</title>
+		<meta charset="utf-8">
+		<style>
+			body {
+				margin: 0px;
+				background-color: #000000;
+				overflow: hidden;
+			}
+		</style>
+	</head>
+	<body>
+
+		<script src="lib/three.min.js"></script>
+		<script src="lib/jquery.min.js"></script>
+		<script src="lib/stats.min.js"></script>
+		<script src="js/orbitcam.js"></script>
+		<script src="js/shaderlibrary.js"></script>
+		<script src="js/basegrid.js"></script>
+		<script src="js/orbitline.js"></script>
+
+		<script>
+
+			var camera, scene, renderer;
+			var sunmesh;
+			var stats;
+
+			var windowX, windowY;
+			var windowHalfX, windowHalfY;
+
+			var thegrid;
+			var shaderlib;
+
+			var theline;
+
+			var t = 0.0;
+
+			var objects = [];
+			var gravitors = [];
+
+			$(function(){
+				loadShaders();
+			});
+
+			function getSize() {
+				windowX = window.innerWidth;
+				//windowY = window.innerHeight;
+				windowY = window.innerHeight;
+				windowHalfX = windowX / 2.0;
+				windowHalfY = windowY / 2.0;
+				console.log("WX: " + windowX + ", WY: " + windowY);
+			}
+
+			function loadShaders() {
+				shaderlib = new ShaderLibrary("shaders/");
+				shaderlib.setLoadCallback(init);
+				shaderlib.addShader("vs_line", "vs_screenline.txt");
+				shaderlib.addShader("fs_line", "fs_solid.txt");
+				shaderlib.loadShaders();
+			}
+
+			function createObj() {
+				var newmesh = new THREE.Mesh(new THREE.BoxGeometry( 0.2,0.2,0.2 ), new THREE.MeshLambertMaterial({color: 0xffffff}));
+				scene.add(newmesh);
+				objects.push(newmesh);	
+			}
+
+			function createGravitor() {
+				var newmesh = new THREE.Mesh(new THREE.SphereGeometry( 1.0, 20, 10 ), new THREE.MeshLambertMaterial({color: 0xff0000}));
+				scene.add(newmesh);
+				gravitors.push(newmesh);	
+			}
+
+			function updateObjects(newobjects) {
+				while(objects.length < newobjects.length) {
+					createObj();
+				}
+				var sf = 1.0;
+				for(var i = 0; i < objects.length; ++i) {
+					if(i < newobjects.length) {
+						var pnew = newobjects[i].position;
+						objects[i].position.set(pnew[0]*sf, 
+												pnew[1]*sf,
+												pnew[2]*sf);
+						objects[i].visible = true;
+					} else {
+						objects[i].visible = false;
+					}
+				}
+			}
+
+			function updateGravitors(newgravitors) {
+				//console.log(newgravitors);
+				while(gravitors.length < newgravitors.length) {
+					createGravitor();
+				}
+				var sf = 1.0;
+				for(var i = 0; i < gravitors.length; ++i) {
+					if(i < newgravitors.length) {
+						var pnew = newgravitors[i].position;
+						var snew = newgravitors[i].radius * sf;
+						gravitors[i].position.set(pnew[0]*sf, 
+												pnew[1]*sf,
+												pnew[2]*sf);
+						gravitors[i].scale.set(snew, snew, snew);
+						gravitors[i].visible = true;
+					} else {
+						gravitors[i].visible = false;
+					}
+				}				
+			}
+
+			function init() {
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+
+				stats = new Stats();
+				stats.domElement.style.position = 'absolute';
+				stats.domElement.style.top = '0px';
+				document.body.appendChild( stats.domElement );
+
+				getSize();
+
+				//
+
+				camera = new THREE.PerspectiveCamera( 70, window.innerWidth / window.innerHeight, 0.01, 1000 );
+				camera.position.z = 1.0;
+
+				scene = new THREE.Scene();
+
+				// add some lights so we can see stuff
+				scene.add( new THREE.AmbientLight( 0xcccccc ) );
+
+				var directionalLight = new THREE.DirectionalLight( 0xeeeeee );
+				directionalLight.position.x = Math.random() - 0.5;
+				directionalLight.position.y = Math.random() - 0.5;
+				directionalLight.position.z = Math.random() - 0.5;
+				directionalLight.position.normalize();
+				scene.add( directionalLight );
+
+				// var pointLight = new THREE.PointLight( 0xffffff, 4 );
+				// scene.add(pointLight);
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+				// sunmesh = new THREE.Mesh(new THREE.SphereGeometry( 1.0, 20, 10 ), new THREE.MeshLambertMaterial({color: 0xff0000}));
+				// scene.add(sunmesh);
+
+				// thegrid = new BaseGrid(200.0, 200.0, 10.0);
+				// thegrid.addToScene(scene);
+
+				initOrbitCamera(camera);
+
+				animate();
+				initWS();
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			var websocket = null;
+			var gotdata = false;
+			var socketopen = false;
+
+			function initWS() { 
+				var wsurl = "ws://" + location.hostname + ":9090";
+				console.log("Connecting to [" + wsurl + "]");
+
+				websocket = new WebSocket(wsurl); 
+				websocket.onopen = function(evt) { onOpen(evt) }; 
+				websocket.onclose = function(evt) { onClose(evt) }; 
+				websocket.onmessage = function(evt) { onMessage(evt) }; 
+				websocket.onerror = function(evt) { onError(evt) }; 
+			}  
+			
+			function onOpen(evt) { 
+				console.log("Connected!");
+				doPing();
+				socketopen = true;
+			}
+
+			function doPing() {
+				gotdata = false;
+				doSend("ping!");
+			}
+
+			function onClose(evt) { 
+				console.log("DISCONNECTED"); 
+			}  
+
+			function onMessage(evt) {
+				//console.log("Got data!");
+				var jdata = JSON.parse(evt.data);
+				if("dynamics" in jdata) {
+					updateObjects(jdata["dynamics"]);
+				}
+				if("gravitors" in jdata) {
+					updateGravitors(jdata["gravitors"]);
+				}
+				gotdata = true;
+			}  
+
+			function onError(evt) { 
+				console.log("Error: " + evt.data); 
+			}  
+
+			function doSend(message) { 
+				websocket.send(message); 
+			}
+
+			function animate() {
+
+				t += 1.0 / 60.0;
+
+				requestAnimationFrame( animate );
+
+				updateCamera();
+
+				//composer.render();
+				renderer.render(scene, camera);
+
+				if(socketopen && gotdata) {
+					doPing();
+				}
+
+				stats.update();
+			}
+
+		</script>
+
+	</body>
+</html>

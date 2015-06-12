@@ -8,28 +8,67 @@ var gravitees = [];
 var fixedTimeStep = 1.0 / 60.0; // seconds 
 var maxSubSteps = 3;
 
-var shipMass = 100.0;
-var shipRad = 1.0;
+var shipMass = 1.0;
+var shipRad = 0.05;
 var shipShape = new CANNON.Sphere(shipRad);
 
-var G = 1.0; // could be anything!
+var stateDirty = true;
+var stateString = "{}";
+
+var updateDelayMS = 1000.0 / 60.0;
+
+var G = 30.0; // could be anything!
 
 function createStaticGravitor(x, y, z, mass, rad) {
     var p = new CANNON.Vec3(x, y, z);
-    gravitors.push({position: p, mass: mass});
 
     var planetshape = new CANNON.Sphere(rad);
     var body = new CANNON.Body({ mass: 0 });
     body.position.set(x, y, z);
     body.addShape(planetshape);
     world.add(body);
+
+    gravitors.push({position: p, mass: mass, physbody: body, radius: rad});
 }
 
-function gravityTo(p_0, m_0, p_1, m_1) {
+function updateMoon(moon) {
+    moon.t += fixedTimeStep;
+    var theta = -moon.t * moon.vtheta;
+    var x = moon.dist * Math.cos(theta);
+    var y = 0.0;
+    var z = moon.dist * Math.sin(theta);
+    moon.position.set(x, y, z);
+    moon.physbody.position.set(x, y, z);
+    //console.log(theta);
+}
+
+function createMoonGravitor(dist, mass, rad) {
+    var p = new CANNON.Vec3(x, y, z);
+    var x = dist;
+    var y = 0;
+    var z = 0;
+
+    var planetshape = new CANNON.Sphere(rad);
+    var body = new CANNON.Body({ mass: 0 });
+    body.position.set(x, y, z);
+    body.addShape(planetshape);
+    world.add(body);
+    
+    var curpos = new CANNON.Vec3(x, y, z);
+    var velvec = calcOrbitalVelocityVec(curpos);
+    var orbitvel = velvec.length();
+    var vtheta = orbitvel / dist; 
+
+    gravitors.push({position: p, mass: mass, physbody: body, radius: rad,
+                    t: 0.0, vtheta: vtheta, update: updateMoon,
+                    dist: dist});   
+}
+
+function gravityTo(p0, m0, p1, m1) {
     var dv = p1.vsub(p0); // copy
     var r2 = dv.lengthSquared();
     dv.normalize();
-    var gval = G * m_0 * m_1 / d2;
+    var gval = -G * m0 * m1 / r2;
     return dv.scale(gval); // another copy :(
 }
 
@@ -45,6 +84,14 @@ function getGravity(position, mass) {
 }
 
 function updateEntities() {
+    // gravitors
+    for(var i = 0; i < gravitors.length; ++i) {
+        var curg = gravitors[i];
+        if("update" in curg) {
+            curg.update(curg);
+        }
+    }
+
     // gravity pass
     var curentity;
     var curgrav;
@@ -61,6 +108,9 @@ function updateEntities() {
     };
 
     world.step(fixedTimeStep, fixedTimeStep, maxSubSteps);
+    stateDirty = true;
+
+    //console.log(getStateString());
 }
 
 function randRange(minval, maxval) {
@@ -68,36 +118,103 @@ function randRange(minval, maxval) {
 }
 
 function createWorld() {
-    var world = new CANNON.World();
+    world = new CANNON.World();
     world.gravity.set(0, 0, 0); // it is space
-    createStaticGravitor(0, 0, 0, 1000); // blargh
+    createStaticGravitor(0, 0, 0, 10, 10); // blargh
+    createMoonGravitor(200, 2, 3);
+
+    for(var i = 0; i < 256; ++i) {
+        createAsteroid();
+    }
+
+    updateCallback();
+}
+
+function updateCallback() {
+    updateEntities();
+    setTimeout(updateCallback, updateDelayMS);
+}
+
+function getGravitorPlain(gravitor) {
+    return {
+        position: gravitor.position.toArray(),
+        mass: gravitor.mass,
+        radius: gravitor.radius
+    }
+}
+
+function getGraviteePlain(gravitee) {
+    return {
+        position: gravitee.physbody.position.toArray(),
+        velocity: gravitee.physbody.velocity.toArray(),
+        mass: gravitee.physbody.mass,
+        radius: gravitee.radius
+    }
 }
 
 function getStateString() {
-    // todo
+    if(stateDirty) {
+        var stateobj = {};
+        stateobj.gravitors = [];
+        for(var i = 0; i < gravitors.length; ++i) {
+            stateobj.gravitors.push(getGravitorPlain(gravitors[i]));
+        }
+        stateobj.dynamics = [];
+        for(var i = 0; i < gravitees.length; ++i) {
+            stateobj.dynamics.push(getGraviteePlain(gravitees[i]));
+        }
+        stateString = JSON.stringify(stateobj);
+    }
+
+    return stateString;
 }
 
 function calcOrbitalVelocityVec(pos) {
     var up = new CANNON.Vec3(0,1,0);
     var orbitdir = up.cross(pos);
     orbitdir.normalize();
-    var orbitvel = 1.0;
+
+    // f = m1 v^2/r
+    // f = G m1 m2 / r^2
+    // m1 v^2 = G m1 m2 / r
+    // v = sqrt(G * m2 / r)
+    var orbitvel = Math.sqrt(G * gravitors[0].mass / pos.length());
+    console.log("Calculated orbvel: " + orbitvel);
 
     return orbitdir.scale(orbitvel);
 }
 
 function setRandomInitialConditions(body) {
-    var minrad = 200.0;
-    var maxrad = 10000.0;
+    var minrad = 25.0;
+    var maxrad = 50.0;
     // rejection sample eh
     var currad = -1.0;
     var curpos = new CANNON.Vec3();
     while(currad < minrad || currad > maxrad) {
         curpos.set(randRange(-maxrad,maxrad),
-                    randRange(-maxrad,maxrad),
+                    randRange(-maxrad*0.1,maxrad*0.1),
                     randRange(-maxrad,maxrad));
         currad = curpos.length();
     }
+    body.position.copy(curpos);
+    body.velocity.copy(calcOrbitalVelocityVec(curpos));
+}
+
+function createAsteroid(options) {
+    var body = new CANNON.Body({ mass: shipMass, 
+                                 linearDamping: 0.0,
+                                 angularDamping: 0.0 });
+    body.addShape(shipShape);
+    
+    var newship = {
+        physbody: body,
+        radius: shipRad
+    };
+
+    setRandomInitialConditions(body);
+    world.add(body);
+    gravitees.push(newship);
+    return newship;
 }
 
 function createPlayerShip(shipname, options) {
@@ -105,21 +222,26 @@ function createPlayerShip(shipname, options) {
         return playerShips[shipname];
     }
 
-    var body = new CANNON.Body({ mass: shipMass });
+    var body = new CANNON.Body({ mass: shipMass,
+                                linearDamping: 0.0,
+                                 angularDamping: 0.0 });
     body.addShape(shipShape);
     
     var newship = {
-        physbody: body
+        physbody: body,
+        displayname: options.displayname || shipname,
+        radius: shipRad
     };
 
     setRandomInitialConditions(body);
     world.add(body);
     playerShips[shipname] = newship;
+    gravitees.push(newship);
     return newship;
 }
 
 function playerApplyControls(shipname, options) {
-
+    // todo
 }
 
 module.exports = {
