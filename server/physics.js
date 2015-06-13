@@ -10,14 +10,24 @@ var maxSubSteps = 3;
 
 var shipMass = 1.0;
 var shipRad = 0.05;
-var shipShape = new CANNON.Sphere(shipRad);
+var boxSize = new CANNON.Vec3(shipRad,shipRad,shipRad);
+//var shipShape = new CANNON.Sphere(shipRad);
+var shipShape = new CANNON.Box(boxSize);
 
 var stateDirty = true;
 var stateString = "{}";
+var infoString = "{}";
 
 var updateDelayMS = 1000.0 / 60.0;
 
+var nextIdx = 0;
+
 var G = 30.0; // could be anything!
+
+function newID() {
+    nextIdx += 1;
+    return ""+nextIdx;
+}
 
 function createStaticGravitor(x, y, z, mass, rad) {
     var p = new CANNON.Vec3(x, y, z);
@@ -28,7 +38,11 @@ function createStaticGravitor(x, y, z, mass, rad) {
     body.addShape(planetshape);
     world.add(body);
 
-    gravitors.push({position: p, mass: mass, physbody: body, radius: rad});
+    gravitors.push({idx: newID(), 
+                    position: p, 
+                    mass: mass, 
+                    physbody: body, 
+                    radius: rad});
 }
 
 function updateMoon(moon) {
@@ -59,8 +73,13 @@ function createMoonGravitor(dist, mass, rad) {
     var orbitvel = velvec.length();
     var vtheta = orbitvel / dist; 
 
-    gravitors.push({position: p, mass: mass, physbody: body, radius: rad,
-                    t: 0.0, vtheta: vtheta, update: updateMoon,
+    gravitors.push({idx: newID(),
+                    position: p, 
+                    mass: mass, 
+                    physbody: body, 
+                    radius: rad,
+                    t: 0.0, vtheta: vtheta, 
+                    update: updateMoon,
                     dist: dist});   
 }
 
@@ -121,7 +140,7 @@ function createWorld() {
     world = new CANNON.World();
     world.gravity.set(0, 0, 0); // it is space
     createStaticGravitor(0, 0, 0, 10, 10); // blargh
-    createMoonGravitor(200, 2, 3);
+    createMoonGravitor(100, 2, 3);
 
     for(var i = 0; i < 256; ++i) {
         createAsteroid();
@@ -140,28 +159,30 @@ function getGravitorPlain(gravitor) {
         position: gravitor.position.toArray(),
         mass: gravitor.mass,
         radius: gravitor.radius
-    }
+    };
 }
 
 function getGraviteePlain(gravitee) {
-    return {
-        position: gravitee.physbody.position.toArray(),
-        velocity: gravitee.physbody.velocity.toArray(),
-        mass: gravitee.physbody.mass,
-        radius: gravitee.radius
-    }
+    return [gravitee.physbody.position.toArray(),
+            gravitee.physbody.velocity.toArray(),
+            gravitee.physbody.quaternion.toArray(),
+            gravitee.physbody.angularVelocity.toArray()];
+
 }
 
 function getStateString() {
     if(stateDirty) {
         var stateobj = {};
-        stateobj.gravitors = [];
+        stateobj.gravitors = {};
+        var curobj;
         for(var i = 0; i < gravitors.length; ++i) {
-            stateobj.gravitors.push(getGravitorPlain(gravitors[i]));
+            curobj = gravitors[i];
+            stateobj.gravitors[curobj.idx] = getGravitorPlain(curobj);
         }
-        stateobj.dynamics = [];
+        stateobj.dynamics = {};
         for(var i = 0; i < gravitees.length; ++i) {
-            stateobj.dynamics.push(getGraviteePlain(gravitees[i]));
+            curobj = gravitees[i];
+            stateobj.dynamics[curobj.idx] = getGraviteePlain(curobj);
         }
         stateString = JSON.stringify(stateobj);
     }
@@ -185,8 +206,8 @@ function calcOrbitalVelocityVec(pos) {
 }
 
 function setRandomInitialConditions(body) {
-    var minrad = 25.0;
-    var maxrad = 50.0;
+    var minrad = 70.0;
+    var maxrad = 80.0;
     // rejection sample eh
     var currad = -1.0;
     var curpos = new CANNON.Vec3();
@@ -203,10 +224,11 @@ function setRandomInitialConditions(body) {
 function createAsteroid(options) {
     var body = new CANNON.Body({ mass: shipMass, 
                                  linearDamping: 0.0,
-                                 angularDamping: 0.0 });
+                                 angularDamping: 0.1 });
     body.addShape(shipShape);
     
     var newship = {
+        idx: newID(),
         physbody: body,
         radius: shipRad
     };
@@ -224,10 +246,11 @@ function createPlayerShip(shipname, options) {
 
     var body = new CANNON.Body({ mass: shipMass,
                                 linearDamping: 0.0,
-                                 angularDamping: 0.0 });
+                                 angularDamping: 0.1 });
     body.addShape(shipShape);
     
     var newship = {
+        idx: newID(),
         physbody: body,
         displayname: options.displayname || shipname,
         radius: shipRad

@@ -61,54 +61,67 @@
 				shaderlib.loadShaders();
 			}
 
-			function createObj() {
+			function createObj(idx) {
+				if(idx in objects){
+					return objects[idx];
+				}
+
 				var newmesh = new THREE.Mesh(new THREE.BoxGeometry( 0.2,0.2,0.2 ), new THREE.MeshLambertMaterial({color: 0xffffff}));
 				scene.add(newmesh);
-				objects.push(newmesh);	
+				objects[idx] = newmesh;
+				return newmesh;
 			}
 
-			function createGravitor() {
+			function createGravitor(idx) {
+				if(idx in gravitors){
+					return gravitors[idx];
+				}
+
 				var newmesh = new THREE.Mesh(new THREE.SphereGeometry( 1.0, 20, 10 ), new THREE.MeshLambertMaterial({color: 0xff0000}));
 				scene.add(newmesh);
-				gravitors.push(newmesh);	
+				gravitors[idx] = newmesh;
+				return newmesh;
 			}
 
 			function updateObjects(newobjects) {
-				while(objects.length < newobjects.length) {
-					createObj();
-				}
 				var sf = 1.0;
-				for(var i = 0; i < objects.length; ++i) {
-					if(i < newobjects.length) {
-						var pnew = newobjects[i].position;
-						objects[i].position.set(pnew[0]*sf, 
-												pnew[1]*sf,
-												pnew[2]*sf);
-						objects[i].visible = true;
-					} else {
-						objects[i].visible = false;
-					}
+				for(var idx in objects) {
+					objects[idx].visible = false;
+				}
+
+				for(var idx in newobjects) {
+					var curobj = createObj(idx);
+					var pnew = newobjects[idx][0];
+					//var vnew = newobjects[idx][1];
+					var qnew = newobjects[idx][2];
+					//var angvnew = newobjects[idx][3];
+					curobj.position.set(pnew[0]*sf, 
+										pnew[1]*sf,
+										pnew[2]*sf);
+					curobj.quaternion.set(qnew[0],
+										  qnew[1],
+										  qnew[2],
+										  qnew[3]);
+					curobj.visible = true;
 				}
 			}
 
 			function updateGravitors(newgravitors) {
-				//console.log(newgravitors);
-				while(gravitors.length < newgravitors.length) {
-					createGravitor();
+				for(var idx in gravitors) {
+					gravitors[idx].visible = false;
 				}
+
 				var sf = 1.0;
-				for(var i = 0; i < gravitors.length; ++i) {
-					if(i < newgravitors.length) {
-						var pnew = newgravitors[i].position;
-						var snew = newgravitors[i].radius * sf;
-						gravitors[i].position.set(pnew[0]*sf, 
-												pnew[1]*sf,
-												pnew[2]*sf);
-						gravitors[i].scale.set(snew, snew, snew);
-						gravitors[i].visible = true;
-					} else {
-						gravitors[i].visible = false;
-					}
+				for(var idx in newgravitors) {
+					var curgrav = createGravitor(idx);
+
+					var pnew = newgravitors[idx].position;
+					var snew = newgravitors[idx].radius * sf;
+					curgrav.position.set(pnew[0]*sf, 
+											pnew[1]*sf,
+											pnew[2]*sf);
+					curgrav.scale.set(snew, snew, snew);
+					curgrav.visible = true;
 				}				
 			}
 
