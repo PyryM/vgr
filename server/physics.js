@@ -167,10 +167,16 @@ function getGravitorPlain(gravitor) {
 }
 
 function getGraviteePlain(gravitee) {
-    return [gravitee.physbody.position.toArray(),
+    var ret = [gravitee.physbody.position.toArray(),
             gravitee.physbody.velocity.toArray(),
             gravitee.physbody.quaternion.toArray(),
             gravitee.physbody.angularVelocity.toArray()];
+
+    if("dtype" in gravitee) {
+        ret.push(gravitee.dtype);
+    }
+
+    return ret;
 
 }
 
@@ -254,37 +260,98 @@ function createAsteroid(options) {
     return newship;
 }
 
-function createPlayerShip(shipname, options) {
+function getPlayerShip(shipname) {
     if(shipname in playerShips) {
         return playerShips[shipname];
     }
 
+    console.log("Creating ship [" + shipname + "]")
+
     var body = new CANNON.Body({ mass: shipMass,
                                 linearDamping: 0.0,
-                                 angularDamping: 0.1 });
+                                 angularDamping: 0.8 });
     body.addShape(shipShape);
     
     var newship = {
-        idx: newID(),
+        idx: "player." + shipname,
         physbody: body,
-        displayname: options.displayname || shipname,
-        radius: shipRad
+        displayname: shipname,
+        radius: shipRad,
+        dtype: "player",
+        thrusts: {yaw: 0.0, pitch: 0.0, roll: 0.0, thrust: 0.0}
     };
 
     setRandomInitialConditions(body);
     world.add(body);
-    playerShips[shipname] = newship;
     gravitees.push(newship);
+
+    playerShips[shipname] = newship;
     return newship;
 }
 
+function clamp(val, absmax) {
+    return Math.min(absmax, Math.max(val, -absmax));
+}
+
+// Thruster arrangement:
+//     t_t
+// t_l t_c t_r
+//     t_b
+var thrust_top      = new CANNON.Vec3( 0.0,  1.0,  0.0);
+var thrust_bottom   = new CANNON.Vec3( 0.0, -1.0,  0.0);
+var thrust_left     = new CANNON.Vec3(-1.0,  0.0,  0.0);
+var thrust_right    = new CANNON.Vec3( 1.0,  0.0,  0.0);
+var thrust_center   = new CANNON.Vec3( 0.0,  0.0,  0.0);
+var unit_force      = new CANNON.Vec3( 0.0,  0.0, -1.0);
+var unit_force_down = new CANNON.Vec3( 0.0,  1.0,  0.0);
+
+function applyThrusts(pship) {
+    var body = pship.physbody;
+    var thrusts = pship.thrusts;
+
+    var torquefactor = 0.01;
+    var maxtorque = 1.0;
+    var thrustfactor = 0.1;
+    var maxthrust = 1.0;
+
+    var v;
+
+    v = clamp((thrusts.yaw || 0.0) * torquefactor, maxtorque);
+    body.applyLocalForce ( unit_force.scale(-v),  thrust_left );
+    body.applyLocalForce ( unit_force.scale( v), thrust_right );
+
+    v = clamp((thrusts.pitch || 0.0) * torquefactor, maxtorque);
+    body.applyLocalForce ( unit_force.scale(-v),  thrust_top );
+    body.applyLocalForce ( unit_force.scale( v), thrust_bottom );
+
+    v = clamp((thrusts.roll || 0.0) * torquefactor, maxtorque);
+    body.applyLocalForce ( unit_force_down.scale(-v),  thrust_left );
+    body.applyLocalForce ( unit_force_down.scale( v), thrust_right );
+
+    v = clamp((thrusts.thrust || 0.0) * maxthrust, maxthrust);
+    body.applyLocalForce ( unit_force.scale(v),  thrust_center );
+}
+
 function playerApplyControls(shipname, options) {
-    // todo
+    var pship = getPlayerShip(shipname);
+    var d = pship.thrusts;
+
+    if("yaw" in options) {
+        d.yaw = options.yaw;
+    }
+    if("pitch" in options) {
+        d.pitch = options.pitch;
+    }
+    if("roll" in options) {
+        d.roll = options.roll;
+    }
+    if("thrust" in options) {
+        d.thrust = options.thrust;
+    }
 }
 
 module.exports = {
     "createWorld": createWorld,
     "getStateString": getStateString,
-    "createPlayerShip": createPlayerShip,
     "playerApplyControls": playerApplyControls
 };

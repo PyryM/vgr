@@ -38,6 +38,7 @@ local Matrix4 = matrixlib.Matrix4
 local Quaternion = quatlib.Quaternion
 local OrbitCam = truss_import("gui/orbitcam.t")
 grid = truss_import("geometry/grid.t")
+json = truss_import("lib/json.lua")
 
 guiSrc = "gui/console.t"
 gui = truss_import(guiSrc)
@@ -85,12 +86,57 @@ function connect(url, callback)
 	return theSocket
 end
 
+curthrusts = {yaw= 0, pitch= 0, roll= 0, thrust= 0}
+
+-- hack to have some kind of controls
+function getKeyboardThrusts()
+	local ret = curthrusts
+	if downkeys["W"] then
+		ret.pitch = 1.0
+	elseif downkeys["S"] then
+		ret.pitch = -1.0
+	else
+		ret.pitch = 0.0
+	end
+
+	if downkeys["A"] then
+		ret.yaw = 1.0
+	elseif downkeys["D"] then
+		ret.yaw = -1.0
+	else 
+		ret.yaw = 0.0
+	end
+
+	if downkeys["Q"] then
+		ret.roll = 1.0
+	elseif downkeys["E"] then
+		ret.roll = -1.0
+	else
+		ret.roll = 0.0
+	end
+
+	if downkeys["Y"] then
+		ret.thrust = 1.0
+	elseif downkeys["H"] then
+		ret.thrust = 0.5
+	elseif downkeys["N"] then
+		ret.thrust = 0.25
+	else
+		ret.thrust = 0.0
+	end
+
+	curthrusts = ret
+	return ret
+end
+
 sframe = 0
 decimate = 2
 function requestData()
 	sframe = sframe + 1 
 	if theSocket and theSocket:isOpen() and sframe % decimate == 0 then
-		theSocket:send("ping")
+		local thrusts = getKeyboardThrusts()
+		thrusts.username = username
+		theSocket:send(json:encode(thrusts))
 	end
 end
 
@@ -106,8 +152,15 @@ function set_update_decimation(v)
 	end
 end
 
-function connect_vgr(url)
+username = "BLARGH"
+function connect_vgr(url, sname)
 	cprint("Connecting to [" .. url .. "]")
+	if sname == nil then
+		username = "USER" .. math.floor(math.random() * 1000.0)
+	else
+		username = sname
+	end
+	cprint("Connecting as [" .. username .. "]")
 	if theSocket == nil then
 		theSocket = websocket.WebSocketConnection()
 	end
@@ -123,7 +176,7 @@ function load_json_scene(filename)
 end
 
 function conlocal()
-	connect_vgr("ws://localhost:9090")
+	connect_vgr("ws://localhost:9090", "testo")
 end
 
 function info(v)

@@ -28,7 +28,7 @@ function ObjectManager:getResourceInfo(objtype, objname)
 	if objtype == "asteroid" then
 		return {obj = "models/asteroid_lo.obj", tex = "models/some_rock.jpg"}
 	elseif objtype == "planet" then
-		local modelname = "models/uvsphere_hi.obj"
+		local modelname = "models/uvsphere_hi_alt.obj"
 		local texname = "models/some_rock.jpg"
 		if objname == "center" then
 			texname = "models/jupiter_hi.jpg"
@@ -36,6 +36,8 @@ function ObjectManager:getResourceInfo(objtype, objname)
 			texname = "models/europa_hi.jpg"
 		end
 		return {obj = modelname, tex = texname}
+	elseif objtype == "player" then
+		return {obj = "models/cone_alt.obj", tex = "models/some_rock.jpg"}
 	else
 		return {obj = "models/ico.obj", tex = "models/some_rock.jpg"}
 	end
@@ -47,6 +49,10 @@ function ObjectManager:getObjectList()
 		table.insert(ret, meshname)
 	end
 	return ret
+end
+
+function ObjectManager:getPlayer(pname)
+	return self.objects["player:player." .. pname]
 end
 
 function ObjectManager:createMesh_(meshfilename, texfilename)
@@ -98,12 +104,17 @@ end
 
 function ObjectManager:updateDynamics(dyns)
 	for dname, dynobj in pairs(dyns) do
-		local vobj = self:getObject(dname, "asteroid")
+		local dtype = dynobj[5]
+		local rad = self.assRad
+		--if dtype then rad = 10.0 end
+
+		local vobj = self:getObject(dname, dtype or "asteroid")
 		local pos = dynobj[1]
+		--trss.trss_log(0, "pos: " .. tostring(pos))
 		-- local vel = dynobj[2] -- not used
 		local quat = dynobj[3]
 		--local angvel = dynobj[4] -- not used
-		self:updateObject(vobj, pos, quat, self.assRad)
+		self:updateObject(vobj, pos, quat, rad)
 		vobj.visible = true
 	end
 end
