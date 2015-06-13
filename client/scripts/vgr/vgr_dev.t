@@ -228,6 +228,10 @@ function watchID(id)
 	setcamtarget(getanyobject(id))
 end
 
+function watchSelf()
+	setcamtarget(manager:getPlayer(username))
+end
+
 consoleenv = {print = cprint, 
 			  err = cerr,
 			  pairs = pairs,
@@ -246,7 +250,8 @@ consoleenv = {print = cprint,
 			  setcamtarget = setcamtarget,
 			  setcamdebug = setcamdebug,
 			  getanyobject = getanyobject,
-			  watchID = watchID}
+			  watchID = watchID,
+			  play = watchSelf}
 
 function consoleExecute(str)
 	local lchunk, err = loadstring(str)
