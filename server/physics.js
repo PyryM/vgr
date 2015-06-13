@@ -29,7 +29,7 @@ function newID() {
     return ""+nextIdx;
 }
 
-function createStaticGravitor(x, y, z, mass, rad) {
+function createStaticGravitor(x, y, z, mass, rad, idx) {
     var p = new CANNON.Vec3(x, y, z);
 
     var planetshape = new CANNON.Sphere(rad);
@@ -38,7 +38,7 @@ function createStaticGravitor(x, y, z, mass, rad) {
     body.addShape(planetshape);
     world.add(body);
 
-    gravitors.push({idx: newID(), 
+    gravitors.push({idx: idx, 
                     position: p, 
                     mass: mass, 
                     physbody: body, 
@@ -56,7 +56,7 @@ function updateMoon(moon) {
     //console.log(theta);
 }
 
-function createMoonGravitor(dist, mass, rad) {
+function createMoonGravitor(dist, mass, rad, idx) {
     var p = new CANNON.Vec3(x, y, z);
     var x = dist;
     var y = 0;
@@ -73,7 +73,7 @@ function createMoonGravitor(dist, mass, rad) {
     var orbitvel = velvec.length();
     var vtheta = orbitvel / dist; 
 
-    gravitors.push({idx: newID(),
+    gravitors.push({idx: idx,
                     position: p, 
                     mass: mass, 
                     physbody: body, 
@@ -143,8 +143,8 @@ function randRange(minval, maxval) {
 function createWorld() {
     world = new CANNON.World();
     world.gravity.set(0, 0, 0); // it is space
-    createStaticGravitor(0, 0, 0, 10, 10); // blargh
-    createMoonGravitor(100, 2, 3);
+    createStaticGravitor(0, 0, 0, 10, 10, "center"); // blargh
+    createMoonGravitor(100, 2, 3, "moon");
 
     for(var i = 0; i < 256; ++i) {
         createAsteroid();
@@ -223,6 +223,11 @@ function setRandomInitialConditions(body) {
     }
     body.position.copy(curpos);
     body.velocity.copy(calcOrbitalVelocityVec(curpos));
+    body.quaternion.set(Math.random(),
+                        Math.random(),
+                        Math.random(),
+                        Math.random());
+    body.quaternion.normalize();
 }
 
 function createAsteroid(options) {
