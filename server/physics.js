@@ -18,7 +18,7 @@ var stateDirty = true;
 var stateString = "{}";
 var infoString = "{}";
 
-var updateDelayMS = 1000.0 / 60.0;
+var updateDelayMS = 1.0; //1000.0 / 60.0;
 
 var nextIdx = 0;
 
@@ -118,6 +118,10 @@ function updateEntities() {
         curentity = gravitees[i].physbody;
         curgrav = getGravity(curentity.position, curentity.mass);
         curentity.applyForce(curgrav, curentity.position);
+        if(curentity.position.length() > 300.0) {
+            console.log("Too far: " + gravitees[i].idx);
+            setRandomInitialConditions(curentity);
+        }
     };
 
     // thruster pass
@@ -228,10 +232,16 @@ function createAsteroid(options) {
     body.addShape(shipShape);
     
     var newship = {
-        idx: newID(),
+        idx: "ast." + newID(),
         physbody: body,
         radius: shipRad
     };
+
+    // When a body collides with another body, they both dispatch the "collide" event.
+    body.addEventListener("collide",function(e){
+      console.log("Asteroid: " + newship.idx + " impacted.");
+      setRandomInitialConditions(newship.physbody);
+    });
 
     setRandomInitialConditions(body);
     world.add(body);

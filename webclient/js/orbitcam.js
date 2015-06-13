@@ -5,7 +5,7 @@ function OrbitCamera(basecam) {
 	this._phi = 0;
 	this._rate = 0.05;
 	this._minradius = 0.1;
-	this._maxradius = 100.0;
+	this._maxradius = 400.0;
 	this._radius = 5.0;
 	this._tarphi = 0.0;
 	this._tartheta = 0.0;
