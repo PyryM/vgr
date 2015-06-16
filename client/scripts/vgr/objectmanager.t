@@ -18,7 +18,7 @@ function ObjectManager:init(renderer)
 	self.geos = {}
 
 	self.objects = {}
-	self.assRad = 0.5
+	self.assRad = 2.0
 
 	self.verbose = false
 	self.scale = 0.01
@@ -26,12 +26,14 @@ end
 
 function ObjectManager:getResourceInfo(objtype, objname)
 	if objtype == "asteroid" then
-		return {obj = "models/asteroid_lo.obj", tex = "models/some_rock.jpg"}
+		return {obj = "models/tetrahedron.obj", tex = "models/some_rock.jpg"}
 	elseif objtype == "planet" then
 		local modelname = "models/uvsphere_hi_alt.obj"
 		local texname = "models/some_rock.jpg"
 		if objname == "center" then
-			texname = "models/jupiter_hi.jpg"
+			--texname = "models/jupiter_hi.jpg"
+			texname = "models/gray.png"
+			modelname = "models/thecrystal.obj"
 		else
 			texname = "models/europa_hi.jpg"
 		end

@@ -140,7 +140,13 @@ function requestData()
 	end
 end
 
+pritnedmessage = false
 function updateMeshesFromJSONString(str)
+	if not pritnedmessage then
+		--trss.trss_log(0, str)
+		trss.trss_log(0, "MSGLEN: " .. #str)
+		pritnedmessage = true
+	end
 	manager:update(str)
 end
 
@@ -341,6 +347,16 @@ function initNVG()
 	end
 end
 
+function updateLights(t)
+	local x = math.cos(t)
+	local y = math.sin(t)
+	renderer:setLightDirections({
+			{   x,  0.0,    y},
+			{  -x,  0.0,   -y},
+			{ 0.0, -1.0,  1.0},
+			{ 0.0, -1.0, -1.0}})
+end
+
 function initBGFX()
 	-- Basic init
 
@@ -356,7 +372,7 @@ function initBGFX()
 
 	bgfx.bgfx_set_view_clear(0, 
 	0x0001 + 0x0002, -- clear color + clear depth
-	0x000000ff,
+	0x000011ff,
 	1.0,
 	0)
 
@@ -434,6 +450,7 @@ function update()
 	bgfx.bgfx_dbg_text_printf(0, 1, 0x4f, "vgr_dev.t")
 	bgfx.bgfx_dbg_text_printf(0, 2, 0x6f, "total: " .. frametime*1000.0 .. " ms, script: " .. scripttime*1000.0 .. " ms")
 
+	updateLights(time * 0.1)
 	updateCamera()
 	renderer:render()
 	drawNVG()
