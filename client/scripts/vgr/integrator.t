@@ -108,8 +108,26 @@ struct integrator.gravinfo {
 	npositions: uint32
 }
 
+terra integrator.step_(p0: &vec3, v0: &vec3, 
+	                       masses: &integrator.gravinfo,
+	                       nmasses: uint32,
+	                       timestep: float,
+	                       stepidx: uint32)
+	var a_t: vec3
+	a_t.x = 0.0
+	a_t.y = 0.0
+	a_t.z = 0.0
+	for massidx = 0,nmasses do
+		var curmass: &integrator.gravinfo = &(masses[massidx])
+		integrator.addGAccelVec(&curmass.positions[stepidx],
+								p0, curmass.gmass, &a_t)
+	end
+	-- v0 += (a_t * timestep)
+	integrator.vaddscaled(v0, &a_t, timestep, v0)
+	-- p0 += (v0 * timestep)
+	integrator.vaddscaled(p0, v0, timestep, p0)
+end
 
-print(tostring(vec3))
 terra integrator.integrate_(p0: &vec3, v0: &vec3, 
 	                       masses: &integrator.gravinfo,
 	                       nmasses: uint32,
@@ -148,17 +166,39 @@ function integrator.integrate(data, masses, timestep, timeoffset, p0, v0)
 						 data.masses, data.nmasses,
 						 timestep, data.nsteps,
 						 data.positions)
+	integrator.vcopytable(p0, data.p1)
+	integrator.vcopytable(v0, data.v1)
+	integrator.step_(data.p1, data.v1,
+						 data.masses, data.nmasses,
+						 timestep, 0)
+	return data.p1, data.v1
 end
 
-function integrator.dataToList(data, dest)
+function integrator.dataToList(data, dest, scale)
 	local ret = dest or {}
 	local p = data.positions
+	local s = scale or 1.0
 	for i = 1,data.nsteps do
 		local cp = p[i-1]
 		ret[i] = ret[i] or {0,0,0}
-		ret[i][1] = cp.x
-		ret[i][2] = cp.y
-		ret[i][3] = cp.z
+		ret[i][1] = cp.x * s
+		ret[i][2] = cp.y * s
+		ret[i][3] = cp.z * s
+		--trss.trss_log(0, "i: " .. i .. ", " .. cp.x .. ", " .. cp.y .. ", " .. cp.z)
+	end
+	return ret
+end
+
+function integrator.massPositionsToList(massinfo, dest, scale)
+	local ret = dest or {}
+	local p = massinfo.positions
+	local s = scale or 1.0
+	for i = 1,massinfo.npositions do
+		local cp = p[i-1]
+		ret[i] = ret[i] or {0,0,0}
+		ret[i][1] = cp.x * s
+		ret[i][2] = cp.y * s
+		ret[i][3] = cp.z * s
 		--trss.trss_log(0, "i: " .. i .. ", " .. cp.x .. ", " .. cp.y .. ", " .. cp.z)
 	end
 	return ret
@@ -190,6 +230,8 @@ function integrator.allocateData(srcmasses, nsteps)
 
 	ret.p0 = terralib.new(vec3)
 	ret.v0 = terralib.new(vec3)
+	ret.p1 = terralib.new(vec3)
+	ret.v1 = terralib.new(vec3)
 
 	return ret
 end
@@ -200,6 +242,19 @@ function integrator.makeStaticPosFunc(pos)
 		dest.x = p.x
 		dest.y = p.y
 		dest.z = p.z
+	end
+	return ret
+end
+
+function integrator.makeOrbitPosFunc(pCenter, rad, vtheta, theta0)
+	local pc = pCenter
+	local v = vtheta
+	local offset = theta0
+	local r = rad
+	local ret = function(t, dest)
+		dest.x = pc.x + rad * math.cos(-vtheta*t + theta0)
+		dest.y = pc.y
+		dest.z = pc.z + rad * math.sin(-vtheta*t + theta0)
 	end
 	return ret
 end

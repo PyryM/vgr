@@ -148,12 +148,12 @@ nlinepoints = 2000
 theline = nil
 
 sunpos = {x = 0, y = 0, z = 0}
-moonpos = {x = 0, y = 3, z = 0}
+mooncenter = {x = 0, y = 0, z = 0}
 masses = {{gmass = 1.0, posfunc = integrator.makeStaticPosFunc(sunpos)},
-		  {gmass = 1.0, posfunc = integrator.makeStaticPosFunc(moonpos)}}
+		  {gmass = 1.0, posfunc = integrator.makeOrbitPosFunc(mooncenter, 3.0, 1.0, 0.0)}}
 
-p0 = {x = 0, y = 0, z = 1}
-v0 = {x = 1, y = 0, z = 0}
+p0 = {x = -1, y = 0.1, z = 0}
+v0 = {x = 0, y = 0, z = 1}
 
 function createLine()
 	for i = 1,nlinepoints do
@@ -168,7 +168,7 @@ function createLine()
 end
 
 function updateLine(t)
-	integrator.integrate(orbitdata, masses, 3.0/60.0, t, p0, v0)
+	p0, v0 = integrator.integrate(orbitdata, masses, 1.0/60.0, t, p0, v0)
 	local pts = integrator.dataToList(orbitdata, linepoints)
 	theline:setPoints({pts})
 end

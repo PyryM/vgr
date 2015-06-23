@@ -22,6 +22,8 @@ function ObjectManager:init(renderer)
 
 	self.verbose = false
 	self.scale = 0.01
+
+	self.simtime = 0.0
 end
 
 function ObjectManager:getResourceInfo(objtype, objname)
@@ -86,7 +88,7 @@ function ObjectManager:getObject(objectname, objecttype)
 	return self.objects[fullname]
 end
 
-function ObjectManager:updateObject(obj, position, quat, rad)
+function ObjectManager:updateObject(obj, position, velocity, quat, rad)
 	if quat then
 		local mq = obj.quaternion
 		mq.x, mq.y, mq.z, mq.w = quat[1], quat[2], quat[3], quat[4]
@@ -95,6 +97,10 @@ function ObjectManager:updateObject(obj, position, quat, rad)
 		local s = self.scale
 		local mp = obj.position
 		mp.x, mp.y, mp.z = position[1]*s, position[2]*s, position[3]*s
+		obj.orbitpos = position
+	end
+	if velocity then
+		obj.orbitvel = velocity
 	end
 	if rad then
 		local ms = obj.scale
@@ -113,10 +119,10 @@ function ObjectManager:updateDynamics(dyns)
 		local vobj = self:getObject(dname, dtype or "asteroid")
 		local pos = dynobj[1]
 		--trss.trss_log(0, "pos: " .. tostring(pos))
-		-- local vel = dynobj[2] -- not used
+		 local vel = dynobj[2]
 		local quat = dynobj[3]
 		--local angvel = dynobj[4] -- not used
-		self:updateObject(vobj, pos, quat, rad)
+		self:updateObject(vobj, pos, vel, quat, rad)
 		vobj.visible = true
 	end
 end
@@ -127,7 +133,7 @@ function ObjectManager:updateGravitors(gravs)
 		local pos = gravitor.position
 		local quat = nil
 		local rad = gravitor.radius
-		self:updateObject(obj, pos, quat, rad)
+		self:updateObject(obj, pos, nil, quat, rad)
 		obj.visible = true
 	end
 end
@@ -139,6 +145,10 @@ function ObjectManager:update(rawstr)
 	-- make the objects that still exist visible again
 	for objname, obj in pairs(self.objects) do
 		obj.visible = false
+	end
+
+	if jdata["simtime"] then
+		self.simtime = jdata["simtime"]
 	end
 
 	if jdata["dynamics"] then

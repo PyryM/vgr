@@ -39,6 +39,7 @@ local Quaternion = quatlib.Quaternion
 local OrbitCam = truss_import("gui/orbitcam.t")
 grid = truss_import("geometry/grid.t")
 json = truss_import("lib/json.lua")
+PreviewLine = truss_import("vgr/previewline.t")
 
 guiSrc = "gui/console.t"
 gui = truss_import(guiSrc)
@@ -238,6 +239,10 @@ function watchSelf()
 	setcamtarget(manager:getPlayer(username))
 end
 
+function previewSelf()
+	previewtarget = manager:getPlayer(username)
+end
+
 consoleenv = {print = cprint, 
 			  err = cerr,
 			  pairs = pairs,
@@ -257,7 +262,8 @@ consoleenv = {print = cprint,
 			  setcamdebug = setcamdebug,
 			  getanyobject = getanyobject,
 			  watchID = watchID,
-			  play = watchSelf}
+			  play = watchSelf,
+			  preview = previewSelf}
 
 function consoleExecute(str)
 	local lchunk, err = loadstring(str)
@@ -328,6 +334,12 @@ function updateCamera()
 	else
 		orbitcam:update(1.0 / 60.0)
 		renderer:setCameraTransform(orbitcam.mat)
+	end
+end
+
+function updatePreviewLine()
+	if previewtarget then
+		previewline:updateLine(manager.simtime, previewtarget.orbitpos, previewtarget.orbitvel)
 	end
 end
 
@@ -410,6 +422,9 @@ function initBGFX()
 	campos = {x = 0, y = 0, z = 0}
 	orbitcam = OrbitCam()
 
+	-- preview line
+	previewline = PreviewLine(renderer)
+	previewtarget = nil
 end
 
 function drawNVG()
@@ -452,6 +467,7 @@ function update()
 
 	updateLights(time * 0.1)
 	updateCamera()
+	updatePreviewLine()
 	renderer:render()
 	drawNVG()
 
